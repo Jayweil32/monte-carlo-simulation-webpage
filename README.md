@@ -1,5 +1,7 @@
 # Monty Hall Monte Carlo Simulation
 
+[![Live Demo](https://img.shields.io/badge/Live-Demo-blue)](https://jayweil32.github.io/Monte-Carlo-Simulation/)
+
 ## Overview
 
 This project is an interactive Monte Carlo simulation of the classic Monty Hall problem. The simulation demonstrates the difference in winning probability between staying with an initial door selection and switching after the host reveals a losing door.
@@ -52,6 +54,14 @@ The visualization demonstrates the Law of Large Numbers, showing how empirical r
 * Exportable simulation results
 * Multiple visualization modes
 * Statistical hypothesis testing functionality
+
+## Simulation Dashboard
+
+![Dashboard](images/monte_carlo_dashboard.png)
+
+## Final Results
+
+![Final Results](images/monte_carlo_results.png)
 
 ## Author
 
