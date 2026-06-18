@@ -1,0 +1,707 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Monty Hall Monte Carlo — Game Show Style</title>
+  <style>
+    :root{
+      --bg:#070a12;
+      --gold:#ffd24a;
+      --blue:#2f6bff;   /* Switch */
+      --red:#ff3b5c;    /* Stay */
+      --text:#e9edff;
+      --muted:#a9b3da;
+      --shadow: 0 18px 55px rgba(0,0,0,.45);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial;
+      background:
+        radial-gradient(1400px 900px at 20% -20%, rgba(255,210,74,.22), transparent 55%),
+        radial-gradient(1200px 800px at 120% 10%, rgba(47,107,255,.16), transparent 55%),
+        radial-gradient(900px 700px at 50% 120%, rgba(255,59,92,.16), transparent 60%),
+        linear-gradient(180deg, #040610 0%, #070a12 70%, #040610 100%);
+      color:var(--text);
+      min-height:100vh;
+      display:flex;
+      justify-content:center;
+      padding:18px;
+    }
+    .app{
+      width:min(1180px, 100%);
+      min-height: calc(100vh - 36px);
+      display:grid;
+      grid-template-rows: auto 1fr;
+      gap:14px;
+    }
+
+    .card{
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border:1px solid rgba(255,255,255,.09);
+      box-shadow: var(--shadow);
+      border-radius: var(--radius);
+      overflow:hidden;
+      position:relative;
+    }
+    .card::before{
+      content:"";
+      position:absolute;
+      inset:-2px;
+      background: linear-gradient(90deg, rgba(255,210,74,.30), rgba(47,107,255,.20), rgba(255,59,92,.20));
+      filter: blur(14px);
+      opacity:.25;
+      z-index:0;
+      pointer-events:none;
+    }
+    .card > *{ position:relative; z-index:1; }
+
+    .header{
+      padding:16px 18px 14px;
+      background: linear-gradient(180deg, rgba(255,210,74,.12), rgba(255,255,255,0));
+      border-bottom: 1px solid rgba(255,255,255,.09);
+    }
+    .titleRow{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:12px;
+      flex-wrap:wrap;
+    }
+    .title{
+      font-weight:950;
+      letter-spacing:.5px;
+      margin:0;
+      font-size: 18px;
+    }
+    .sub{
+      margin:8px 0 0;
+      color:var(--muted);
+      font-size:13px;
+      line-height:1.35;
+    }
+
+    .topPanel{
+      display:grid;
+      grid-template-columns: 1.15fr 1fr 1fr;
+      gap:12px;
+      padding:14px 18px 18px;
+    }
+    @media (max-width: 980px){
+      .topPanel{ grid-template-columns: 1fr; }
+    }
+
+    .controls, .stats{
+      padding:12px 12px;
+      border-radius: 16px;
+      background: rgba(7,10,18,.45);
+      border: 1px solid rgba(255,255,255,.10);
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+    .row{ display:grid; gap:8px; }
+    label{
+      font-size:12px;
+      color:var(--muted);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+    }
+    .mini{
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      opacity:.92;
+    }
+    input[type="number"]{
+      width:100%;
+      padding:10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(7,10,18,.55);
+      color: var(--text);
+      outline:none;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+    input[type="range"]{
+      width:100%;
+      accent-color: var(--gold);
+    }
+    .btnRow{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-top:2px;
+    }
+    button{
+      cursor:pointer;
+      border:none;
+      border-radius: 14px;
+      padding:11px 14px;
+      font-weight:900;
+      letter-spacing:.3px;
+      color: var(--text);
+      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(255,255,255,.12);
+      transition: transform .06s ease, filter .2s ease;
+      user-select:none;
+    }
+    button:hover{ filter: brightness(1.08); }
+    button:active{ transform: translateY(1px); }
+    .primary{
+      background: linear-gradient(180deg, rgba(255,210,74,.32), rgba(255,210,74,.16));
+      border: 1px solid rgba(255,210,74,.32);
+      color:#1a1606;
+      text-shadow: 0 1px 0 rgba(255,255,255,.25);
+    }
+    .danger{
+      background: linear-gradient(180deg, rgba(255,59,92,.26), rgba(255,59,92,.12));
+      border: 1px solid rgba(255,59,92,.30);
+    }
+    .ghost{ background: rgba(255,255,255,.05); }
+
+    .stats{
+      grid-template-columns: 1fr 1fr;
+      gap:10px;
+    }
+    .stat{
+      padding:12px 12px;
+      border-radius: 14px;
+      background: rgba(7,10,18,.35);
+      border: 1px solid rgba(255,255,255,.10);
+      min-height:72px;
+    }
+    .stat .k{
+      font-size:12px;
+      color: var(--muted);
+      margin:0 0 6px;
+    }
+    .stat .v{
+      margin:0;
+      font-weight:950;
+      font-size:18px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing:.2px;
+    }
+    .stat small{
+      display:block;
+      margin-top:4px;
+      color: var(--muted);
+      font-size:11.5px;
+      font-variant-numeric: tabular-nums;
+    }
+    .blue{ color: #bcd1ff; }
+    .red{ color: #ffb9c6; }
+
+    .legend{
+      display:flex;
+      gap:12px;
+      align-items:center;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+      font-size:12px;
+      color: var(--muted);
+    }
+    .dot{
+      width:10px;height:10px;border-radius:50%;
+      display:inline-block;
+      margin-right:6px;
+      vertical-align:middle;
+      box-shadow: 0 0 0 2px rgba(255,255,255,.08);
+    }
+    .dot.blue{ background: var(--blue); }
+    .dot.red{ background: var(--red); }
+
+    .chartCard{
+      display:grid;
+      grid-template-rows: auto 1fr;
+      min-height: 0;
+    }
+    .chartTop{
+      display:flex;
+      align-items:flex-end;
+      justify-content:space-between;
+      gap:10px;
+      padding:14px 18px 12px;
+      border-bottom: 1px solid rgba(255,255,255,.09);
+      background: linear-gradient(180deg, rgba(47,107,255,.10), rgba(255,255,255,0));
+    }
+    .plotTitle{
+      margin:0;
+      font-weight:950;
+      letter-spacing:.4px;
+      font-size:16px;
+    }
+    .plotWrap{
+      padding:12px;
+      min-height: 0;
+    }
+
+    .screen{
+      width:100%;
+      height:100%;
+      border-radius: 18px;
+      background: radial-gradient(1200px 700px at 50% 0%, rgba(255,255,255,.06), rgba(0,0,0,0) 55%),
+                  linear-gradient(180deg, rgba(5,8,18,.85), rgba(3,5,12,.85));
+      border: 1px solid rgba(255,255,255,.10);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.03);
+      padding: 10px;
+    }
+    canvas{
+      width:100%;
+      height:100%;
+      display:block;
+      border-radius: 14px;
+      background: linear-gradient(180deg, rgba(9,12,24,.95), rgba(6,8,16,.95));
+      border: 1px solid rgba(255,255,255,.08);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.02);
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- TOP -->
+    <section class="card">
+      <div class="header">
+        <div class="titleRow">
+          <h1 class="title">Monty Hall Monte Carlo Simulation</h1>
+          <div class="legend">
+            <span><span class="dot blue"></span>Switch</span>
+            <span><span class="dot red"></span>Stay</span>
+          </div>
+        </div>
+        <p class="sub">Cumulative win rates update during the run.</p>
+      </div>
+
+      <div class="topPanel">
+        <div class="controls">
+          <div class="row">
+            <label for="trials">
+              Trials (10,000 – 100,000)
+              <span class="mini" id="trialsLabel">10,000</span>
+            </label>
+            <input id="trials" type="number" min="10000" max="100000" step="1000" value="10000" />
+          </div>
+
+          <div class="row">
+            <label for="speed">
+              Speed
+              <span class="mini" id="speedLabel">Turbo</span>
+            </label>
+            <input id="speed" type="range" min="1" max="6" step="1" value="5" />
+          </div>
+
+          <div class="btnRow">
+            <button class="primary" id="startBtn">Start</button>
+            <button class="ghost" id="pauseBtn" disabled>Pause</button>
+            <button class="danger" id="resetBtn">Reset</button>
+          </div>
+        </div>
+
+        <!-- Stats: removed Separation KPI per request -->
+        <div class="stats">
+          <div class="stat">
+            <p class="k">Completed</p>
+            <p class="v" id="completed">0 / 10,000</p>
+            <small id="eta">—</small>
+          </div>
+          <div class="stat">
+            <p class="k">Running speed</p>
+            <p class="v" id="rate">—</p>
+            <small>Trials / second (approx.)</small>
+          </div>
+
+          <div class="stat">
+            <p class="k"><span class="dot blue"></span>Switch win rate</p>
+            <p class="v blue" id="pSwitch">0.0000</p>
+            <small id="ciSwitch">95% CI: —</small>
+          </div>
+          <div class="stat">
+            <p class="k"><span class="dot red"></span>Stay win rate</p>
+            <p class="v red" id="pStay">0.0000</p>
+            <small id="ciStay">95% CI: —</small>
+          </div>
+        </div>
+
+        <!-- Third panel removed (view types), kept clean -->
+        <div class="controls">
+          <div style="color:var(--muted); font-size:12px; line-height:1.35;">
+            Reference lines at 0.67 and 0.33 are shown on the chart.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOTTOM -->
+    <section class="card chartCard">
+      <div class="chartTop">
+        <h2 class="plotTitle">Win Rate Over Time</h2>
+        <div class="legend">
+          <span><span class="dot blue"></span>Switch</span>
+          <span><span class="dot red"></span>Stay</span>
+        </div>
+      </div>
+      <div class="plotWrap">
+        <div class="screen">
+          <canvas id="chart" width="1400" height="760"></canvas>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---------- Utilities ----------
+    const fmtInt = (n) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    function wilsonCI(successes, n, z = 1.96) {
+      if (n === 0) return [0, 0];
+      const p = successes / n;
+      const z2 = z * z;
+      const denom = 1 + z2 / n;
+      const center = (p + z2 / (2 * n)) / denom;
+      const half = (z * Math.sqrt((p * (1 - p) / n) + (z2 / (4 * n * n)))) / denom;
+      return [clamp(center - half, 0, 1), clamp(center + half, 0, 1)];
+    }
+
+    // ---------- Trial ----------
+    function runOneTrial() {
+      const car = (Math.random() * 3) | 0;
+      const pick = (Math.random() * 3) | 0;
+      const stayWin = (pick === car);
+      const switchWin = !stayWin;
+      return { stayWin, switchWin };
+    }
+
+    // ---------- DOM ----------
+    const trialsInput = document.getElementById('trials');
+    const trialsLabel = document.getElementById('trialsLabel');
+    const speedInput  = document.getElementById('speed');
+    const speedLabel  = document.getElementById('speedLabel');
+
+    const startBtn = document.getElementById('startBtn');
+    const pauseBtn = document.getElementById('pauseBtn');
+    const resetBtn = document.getElementById('resetBtn');
+
+    const completedEl = document.getElementById('completed');
+    const etaEl       = document.getElementById('eta');
+    const rateEl      = document.getElementById('rate');
+    const pSwitchEl   = document.getElementById('pSwitch');
+    const pStayEl     = document.getElementById('pStay');
+    const ciSwitchEl  = document.getElementById('ciSwitch');
+    const ciStayEl    = document.getElementById('ciStay');
+
+    // ---------- Speed profiles ----------
+    const speedProfiles = {
+      1: { label: "Slow",      batch: 60,   delay: 60 },
+      2: { label: "Chill",     batch: 200,  delay: 35 },
+      3: { label: "Medium",    batch: 550,  delay: 20 },
+      4: { label: "Fast",      batch: 1200, delay: 12 },
+      5: { label: "Turbo",     batch: 2400, delay: 6  },
+      6: { label: "Ludicrous", batch: 5200, delay: 0  }
+    };
+
+    // ---------- Plot data: fixed buckets so we ALWAYS draw a line ----------
+    const PLOT_POINTS = 220;
+    let bucketWinsSwitch = [];
+    let bucketWinsStay = [];
+    let bucketCounts = [];
+
+    function resetBuckets() {
+      bucketWinsSwitch = new Array(PLOT_POINTS).fill(0);
+      bucketWinsStay   = new Array(PLOT_POINTS).fill(0);
+      bucketCounts     = new Array(PLOT_POINTS).fill(0);
+    }
+
+    function bucketIndexForTrial(t, totalTrials) {
+      const frac = t / totalTrials;
+      return Math.min(PLOT_POINTS - 1, Math.max(0, Math.floor(frac * PLOT_POINTS)));
+    }
+
+    function buildSeries(totalTrials) {
+      const xs = [];
+      const ysS = [];
+      const ysT = [];
+      let cumS = 0, cumT = 0, cumN = 0;
+
+      // baseline point
+      xs.push(0); ysS.push(0); ysT.push(0);
+
+      for (let i = 0; i < PLOT_POINTS; i++) {
+        const n = bucketCounts[i];
+        if (!n) continue;
+        cumN += n;
+        cumS += bucketWinsSwitch[i];
+        cumT += bucketWinsStay[i];
+
+        const x = Math.round((i + 1) * (totalTrials / PLOT_POINTS));
+        xs.push(x);
+        ysS.push(cumS / cumN);
+        ysT.push(cumT / cumN);
+      }
+      return { xs, ysS, ysT };
+    }
+
+    // ---------- Canvas ----------
+    const canvas = document.getElementById('chart');
+    const ctx = canvas.getContext('2d');
+
+    function drawChart(totalTrials) {
+      const W = canvas.width, H = canvas.height;
+      const padL = 72, padR = 18, padT = 18, padB = 52;
+      const plotW = W - padL - padR;
+      const plotH = H - padT - padB;
+
+      ctx.clearRect(0, 0, W, H);
+
+      const { xs, ysS, ysT } = buildSeries(totalTrials);
+
+      const yMin = 0, yMax = 1;
+      const yToPix = (y) => padT + (1 - ((y - yMin) / (yMax - yMin))) * plotH;
+      const xToPix = (x) => padL + (x / totalTrials) * plotW;
+
+      // Gridlines + y labels like the reference image
+      ctx.save();
+      ctx.strokeStyle = "rgba(255,255,255,0.10)";
+      ctx.lineWidth = 1;
+      ctx.font = "12px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial";
+      ctx.fillStyle = "rgba(233,237,255,0.70)";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+
+      [1.00, 0.67, 0.50, 0.33, 0.00].forEach(val => {
+        const y = yToPix(val);
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + plotW, y);
+        ctx.stroke();
+        ctx.fillText(val.toFixed(2), padL - 10, y);
+      });
+
+      // X labels: only 0 and max
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      ctx.fillText("0", padL, padT + plotH + 12);
+      ctx.fillText(fmtInt(totalTrials), padL + plotW, padT + plotH + 12);
+
+      // Axes
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(padL, padT);
+      ctx.lineTo(padL, padT + plotH);
+      ctx.lineTo(padL + plotW, padT + plotH);
+      ctx.stroke();
+
+      // Expected reference lines at 2/3 and 1/3 (dashed)
+      ctx.save();
+      ctx.setLineDash([6, 6]);
+      ctx.strokeStyle = "rgba(255,255,255,0.16)";
+      ctx.lineWidth = 1.2;
+      [2/3, 1/3].forEach(p => {
+        const y = yToPix(p);
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(padL + plotW, y);
+        ctx.stroke();
+      });
+      ctx.restore();
+
+      function drawLine(seriesX, seriesY, stroke, width) {
+        if (seriesX.length < 2) return;
+        ctx.save();
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = width;
+        ctx.lineJoin = "round";
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let i = 0; i < seriesX.length; i++) {
+          const x = xToPix(seriesX[i]);
+          const y = yToPix(seriesY[i]);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // subtle glow
+        ctx.globalAlpha = 0.16;
+        ctx.lineWidth = width + 4;
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      drawLine(xs, ysS, "#2f6bff", 2.8);
+      drawLine(xs, ysT, "#ff3b5c", 2.8);
+
+      ctx.restore();
+    }
+
+    // ---------- Simulation state ----------
+    let totalTrials = 10000;
+    let done = 0;
+    let winsSwitch = 0;
+    let winsStay = 0;
+
+    let running = false;
+    let lastStatsTime = 0;
+    let lastStatsDone = 0;
+    let avgRate = 0;
+
+    // ---------- UI ----------
+    function sanitizeTrialsInput() {
+      const raw = parseInt(trialsInput.value || "10000", 10);
+      const v = clamp(isFinite(raw) ? raw : 10000, 10000, 100000);
+      trialsInput.value = v;
+      trialsLabel.textContent = fmtInt(v);
+      return v;
+    }
+
+    function updateUI() {
+      const pS = done ? (winsSwitch / done) : 0;
+      const pT = done ? (winsStay / done) : 0;
+
+      completedEl.textContent = `${fmtInt(done)} / ${fmtInt(totalTrials)}`;
+      pSwitchEl.textContent = pS.toFixed(4);
+      pStayEl.textContent = pT.toFixed(4);
+
+      const [loS, hiS] = wilsonCI(winsSwitch, done);
+      const [loT, hiT] = wilsonCI(winsStay, done);
+      ciSwitchEl.textContent = done ? `95% CI: ${loS.toFixed(4)} – ${hiS.toFixed(4)}` : "95% CI: —";
+      ciStayEl.textContent   = done ? `95% CI: ${loT.toFixed(4)} – ${hiT.toFixed(4)}` : "95% CI: —";
+
+      if (avgRate > 0 && running) rateEl.textContent = `${fmtInt(Math.round(avgRate))}`;
+      else rateEl.textContent = "—";
+
+      if (running && avgRate > 0 && done < totalTrials) {
+        const remaining = totalTrials - done;
+        const secs = remaining / avgRate;
+        const nice = secs < 60 ? `${secs.toFixed(1)}s` : `${Math.floor(secs/60)}m ${Math.round(secs%60)}s`;
+        etaEl.textContent = `Est. time left: ${nice}`;
+      } else {
+        etaEl.textContent = (done === totalTrials) ? "Finished" : "—";
+      }
+    }
+
+    function resetAll() {
+      running = false;
+
+      totalTrials = sanitizeTrialsInput();
+      done = 0;
+      winsSwitch = 0;
+      winsStay = 0;
+
+      avgRate = 0;
+      lastStatsTime = performance.now();
+      lastStatsDone = 0;
+
+      resetBuckets();
+      updateUI();
+      drawChart(totalTrials);
+
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      pauseBtn.textContent = "Pause";
+    }
+
+    // ---------- Loop ----------
+    function stepBatch() {
+      if (!running) return;
+
+      const prof = speedProfiles[parseInt(speedInput.value, 10)] || speedProfiles[5];
+      const batch = prof.batch;
+
+      const remaining = totalTrials - done;
+      const n = Math.min(batch, remaining);
+
+      for (let i = 0; i < n; i++) {
+        const r = runOneTrial();
+        done++;
+
+        if (r.switchWin) winsSwitch++;
+        if (r.stayWin) winsStay++;
+
+        const b = bucketIndexForTrial(done, totalTrials);
+        bucketCounts[b] += 1;
+        if (r.switchWin) bucketWinsSwitch[b] += 1;
+        if (r.stayWin) bucketWinsStay[b] += 1;
+      }
+
+      // rate estimate ~4x/sec
+      const now = performance.now();
+      if (now - lastStatsTime >= 250) {
+        const deltaDone = done - lastStatsDone;
+        const deltaT = (now - lastStatsTime) / 1000;
+        const instRate = deltaDone / Math.max(deltaT, 1e-6);
+        avgRate = avgRate ? (0.7 * avgRate + 0.3 * instRate) : instRate;
+        lastStatsTime = now;
+        lastStatsDone = done;
+      }
+
+      drawChart(totalTrials);
+      updateUI();
+
+      if (done >= totalTrials) {
+        running = false;
+        startBtn.disabled = false;
+        pauseBtn.disabled = true;
+        pauseBtn.textContent = "Pause";
+        updateUI();
+        return;
+      }
+
+      const delay = prof.delay;
+      if (delay > 0) setTimeout(() => requestAnimationFrame(stepBatch), delay);
+      else requestAnimationFrame(stepBatch);
+    }
+
+    // ---------- Events ----------
+    trialsInput.addEventListener('input', () => sanitizeTrialsInput());
+
+    speedInput.addEventListener('input', () => {
+      const prof = speedProfiles[parseInt(speedInput.value, 10)] || speedProfiles[5];
+      speedLabel.textContent = prof.label;
+    });
+
+    startBtn.addEventListener('click', () => {
+      if (running) return;
+
+      const newTotal = sanitizeTrialsInput();
+
+      // If total changed mid-run, restart clean (keeps chart scaling consistent)
+      if (done > 0 && newTotal !== totalTrials) {
+        totalTrials = newTotal;
+        resetAll();
+      } else {
+        totalTrials = newTotal;
+      }
+
+      running = true;
+      startBtn.disabled = true;
+      pauseBtn.disabled = false;
+      pauseBtn.textContent = "Pause";
+      lastStatsTime = performance.now();
+      lastStatsDone = done;
+
+      requestAnimationFrame(stepBatch);
+    });
+
+    pauseBtn.addEventListener('click', () => {
+      if (!running) return;
+      running = false;
+      startBtn.disabled = false;
+      pauseBtn.disabled = true;
+      etaEl.textContent = "Paused";
+    });
+
+    resetBtn.addEventListener('click', resetAll);
+
+    // ---------- Init ----------
+    speedLabel.textContent = speedProfiles[parseInt(speedInput.value, 10)]?.label || "Turbo";
+    sanitizeTrialsInput();
+    resetAll();
+  </script>
+</body>
+</html>
